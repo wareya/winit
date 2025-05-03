@@ -1,4 +1,4 @@
-//! Simple winit window example.
+//! Tablet tester.
 
 use std::error::Error;
 
@@ -76,8 +76,8 @@ impl ApplicationHandler for App {
 
         let size = window.surface_size();
 
+        // Suppress warning for unused properties in struct-like enum bindings.
         #[allow(unused_variables)]
-        // unused properties in struct-like enum bindings in match statements
         match event {
             WindowEvent::CloseRequested => {
                 println!("Close was requested; stopping");
