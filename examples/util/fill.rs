@@ -15,6 +15,8 @@ pub use platform::fill_window;
 pub use platform::fill_window_with_animated_color;
 #[allow(unused_imports)]
 pub use platform::fill_window_with_color;
+#[allow(unused_imports)]
+pub use platform::fill_window_with_fn;
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod platform {
@@ -95,6 +97,30 @@ mod platform {
 
             let mut buffer = surface.buffer_mut().expect("Failed to get the softbuffer buffer");
             buffer.fill(color);
+            buffer.present().expect("Failed to present the softbuffer buffer");
+        })
+    }
+
+    pub fn fill_window_with_fn(window: &dyn Window, f: impl Fn(&mut [u32])) {
+        GC.with(|gc| {
+            let size = window.surface_size();
+            let (Some(width), Some(height)) =
+                (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
+            else {
+                return;
+            };
+
+            // Either get the last context used or create a new one.
+            let mut gc = gc.borrow_mut();
+            let surface =
+                gc.get_or_insert_with(|| GraphicsContext::new(window)).create_surface(window);
+
+            // Fill a buffer with a solid color
+
+            surface.resize(width, height).expect("Failed to resize the softbuffer surface");
+
+            let mut buffer = surface.buffer_mut().expect("Failed to get the softbuffer buffer");
+            f(&mut buffer);
             buffer.present().expect("Failed to present the softbuffer buffer");
         })
     }

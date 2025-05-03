@@ -96,6 +96,7 @@ softbuffer = { version = "0.4.6", default-features = false, features = [
     "wayland",
     "wayland-dlopen",
 ] }
+font8x8 = "0.3.1"
 
 # Android
 [target.'cfg(target_os = "android")'.dependencies]
