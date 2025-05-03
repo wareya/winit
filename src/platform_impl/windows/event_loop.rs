@@ -43,9 +43,9 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetMenu, LoadCursorW, MsgWaitForMultipleObjectsEx, PeekMessageW, PostMessageW,
     RegisterClassExW, RegisterWindowMessageA, SetCursor, SetWindowPos, TranslateMessage,
     CREATESTRUCTW, GWL_STYLE, GWL_USERDATA, HTCAPTION, HTCLIENT, MINMAXINFO, MNC_CLOSE, MSG,
-    MWMO_INPUTAVAILABLE, NCCALCSIZE_PARAMS, PM_REMOVE, PT_TOUCH, QS_ALLINPUT, RI_MOUSE_HWHEEL,
-    RI_MOUSE_WHEEL, SC_MINIMIZE, SC_RESTORE, SIZE_MAXIMIZED, SWP_NOACTIVATE, SWP_NOMOVE,
-    SWP_NOSIZE, SWP_NOZORDER, WHEEL_DELTA, WINDOWPOS, WMSZ_BOTTOM, WMSZ_BOTTOMLEFT,
+    MWMO_INPUTAVAILABLE, NCCALCSIZE_PARAMS, PM_REMOVE, PT_PEN, PT_TOUCH, QS_ALLINPUT,
+    RI_MOUSE_HWHEEL, RI_MOUSE_WHEEL, SC_MINIMIZE, SC_RESTORE, SIZE_MAXIMIZED, SWP_NOACTIVATE,
+    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WHEEL_DELTA, WINDOWPOS, WMSZ_BOTTOM, WMSZ_BOTTOMLEFT,
     WMSZ_BOTTOMRIGHT, WMSZ_LEFT, WMSZ_RIGHT, WMSZ_TOP, WMSZ_TOPLEFT, WMSZ_TOPRIGHT,
     WM_CAPTURECHANGED, WM_CLOSE, WM_CREATE, WM_DESTROY, WM_DPICHANGED, WM_ENTERSIZEMOVE,
     WM_EXITSIZEMOVE, WM_GETMINMAXINFO, WM_IME_COMPOSITION, WM_IME_ENDCOMPOSITION,
@@ -66,8 +66,8 @@ use crate::application::ApplicationHandler;
 use crate::dpi::{PhysicalPosition, PhysicalSize};
 use crate::error::{EventLoopError, NotSupportedError, RequestError};
 use crate::event::{
-    DeviceEvent, DeviceId, FingerId, Force, Ime, RawKeyEvent, SurfaceSizeWriter, TouchPhase,
-    WindowEvent,
+    DeviceEvent, DeviceId, FingerId, Force, Ime, PointerId, RawKeyEvent, SurfaceSizeWriter,
+    TouchPhase, WindowEvent,
 };
 use crate::event_loop::{
     ActiveEventLoop as RootActiveEventLoop, ControlFlow, DeviceEvents,
@@ -2045,27 +2045,53 @@ unsafe fn public_window_callback_inner(
                         continue;
                     }
 
-                    let force = if let PT_TOUCH = pointer_info.pointerType {
+                    let (force, rotation, tilt_x, tilt_y) = if let PT_TOUCH =
+                        pointer_info.pointerType
+                    {
                         let mut touch_info = mem::MaybeUninit::uninit();
                         util::GET_POINTER_TOUCH_INFO.and_then(|GetPointerTouchInfo| {
                             match unsafe {
                                 GetPointerTouchInfo(pointer_info.pointerId, touch_info.as_mut_ptr())
                             } {
-                                0 => None,
-                                _ => normalize_pointer_pressure(unsafe {
-                                    touch_info.assume_init().pressure
-                                }),
+                                0 => Some((None, None, None, None)),
+                                _ => Some((
+                                    normalize_pointer_pressure(unsafe {
+                                        touch_info.assume_init().pressure
+                                    }),
+                                    None,
+                                    None,
+                                    None,
+                                )),
+                            }
+                        })
+                    } else if let PT_PEN = pointer_info.pointerType {
+                        let mut pen_info = mem::MaybeUninit::uninit();
+                        util::GET_POINTER_PEN_INFO.and_then(|GetPointerPenInfo| {
+                            match unsafe {
+                                GetPointerPenInfo(pointer_info.pointerId, pen_info.as_mut_ptr())
+                            } {
+                                0 => Some((None, None, None, None)),
+                                _ => unsafe {
+                                    Some((
+                                        normalize_pointer_pressure(pen_info.assume_init().pressure),
+                                        Some(pen_info.assume_init().rotation as f32),
+                                        Some(pen_info.assume_init().tiltX as f32),
+                                        Some(pen_info.assume_init().tiltY as f32),
+                                    ))
+                                },
                             }
                         })
                     } else {
-                        None
-                    };
+                        Some((None, None, None, None))
+                    }
+                    .unwrap_or((None, None, None, None));
 
                     let x = location.x as f64 + x.fract();
                     let y = location.y as f64 + y.fract();
                     let position = PhysicalPosition::new(x, y);
 
                     let finger_id = FingerId::from_raw(pointer_info.pointerId as usize);
+                    let pointer_id = PointerId::from_raw(pointer_info.pointerId as usize);
                     let primary = util::has_flag(pointer_info.pointerFlags, POINTER_FLAG_PRIMARY);
 
                     if util::has_flag(pointer_info.pointerFlags, POINTER_FLAG_DOWN) {
@@ -2075,6 +2101,8 @@ unsafe fn public_window_callback_inner(
                             position,
                             kind: if let PT_TOUCH = pointer_info.pointerType {
                                 PointerKind::Touch(finger_id)
+                            } else if let PT_PEN = pointer_info.pointerType {
+                                PointerKind::Pen(pointer_id)
                             } else {
                                 PointerKind::Unknown
                             },
@@ -2086,6 +2114,14 @@ unsafe fn public_window_callback_inner(
                             position,
                             button: if let PT_TOUCH = pointer_info.pointerType {
                                 ButtonSource::Touch { finger_id, force }
+                            } else if let PT_PEN = pointer_info.pointerType {
+                                ButtonSource::Pen {
+                                    pen_id: pointer_id,
+                                    force,
+                                    rotation,
+                                    tilt_x,
+                                    tilt_y,
+                                }
                             } else {
                                 ButtonSource::Unknown(0)
                             },
@@ -2098,6 +2134,14 @@ unsafe fn public_window_callback_inner(
                             position,
                             button: if let PT_TOUCH = pointer_info.pointerType {
                                 ButtonSource::Touch { finger_id, force }
+                            } else if let PT_PEN = pointer_info.pointerType {
+                                ButtonSource::Pen {
+                                    pen_id: pointer_id,
+                                    force,
+                                    rotation,
+                                    tilt_x,
+                                    tilt_y,
+                                }
                             } else {
                                 ButtonSource::Unknown(0)
                             },
@@ -2108,6 +2152,8 @@ unsafe fn public_window_callback_inner(
                             position: Some(position),
                             kind: if let PT_TOUCH = pointer_info.pointerType {
                                 PointerKind::Touch(finger_id)
+                            } else if let PT_PEN = pointer_info.pointerType {
+                                PointerKind::Pen(pointer_id)
                             } else {
                                 PointerKind::Unknown
                             },
@@ -2119,6 +2165,14 @@ unsafe fn public_window_callback_inner(
                             position,
                             source: if let PT_TOUCH = pointer_info.pointerType {
                                 PointerSource::Touch { finger_id, force }
+                            } else if let PT_PEN = pointer_info.pointerType {
+                                PointerSource::Pen {
+                                    pen_id: pointer_id,
+                                    force,
+                                    rotation,
+                                    tilt_x,
+                                    tilt_y,
+                                }
                             } else {
                                 PointerSource::Unknown
                             },

@@ -442,6 +442,7 @@ pub enum PointerKind {
     ///
     /// **macOS:** Unsupported.
     Touch(FingerId),
+    Pen(PointerId),
     Unknown,
 }
 
@@ -492,6 +493,47 @@ pub enum PointerSource {
         ///   force will be 0.5 when a button is pressed or 0.0 otherwise.
         force: Option<Force>,
     },
+    /// Represents a tablet pen event.
+    ///
+    /// Pointer events behave similarly to [`PointerSource::Touch`], except that
+    /// [`WindowEvent::PointerMoved`] events are also sent while the pen hovers near the tablet
+    /// surface.
+    ///
+    /// ## Platform-specific
+    ///
+    /// **Windows:** Currently only supported on windows.
+    Pen {
+        pen_id: PointerId,
+
+        /// Describes how hard the pen was pressed.
+        ///
+        /// Conventionally, 0.0 means that the pen is not being pressed or is barely being pressed,
+        /// and 1.0 means that the pen is being pressed as hard as, or harder than, the
+        /// tablet is willing to measure. However, the exact mapping between physical force
+        /// and measured force is unspecified and varies wildly from device to device; it
+        /// does not even need to be monotonic, let alone start and end at 0.0 and 1.0.
+        ///
+        /// ## Platform-specific
+        ///
+        /// **Windows:** Currently only supported on windows.
+        force: Option<Force>,
+
+        /// If supported, rotation angle in degrees, clockwise, from 0.0 to 360.0.
+        ///
+        /// Rotation for pen devices is rotation along the main axis of the pen, i.e. "twist".
+        /// There is no canonical meaning of zero rotation, so the null rotation varies
+        /// from device to device; it might mean buttons towards user, or off at a weird
+        /// angle, or away from the tablet surface, or anything. It might even drift.
+        rotation: Option<f32>,
+
+        /// If supported, amount of left-right tilt, where -90.0 is fully tilted left and 90.0 is
+        /// right. 0.0 means untilted.
+        tilt_x: Option<f32>,
+
+        /// If supported, amount of up-down tilt, where -90.0 is fully tilted up and 90.0 is down.
+        /// 0.0 means untilted.
+        tilt_y: Option<f32>,
+    },
     Unknown,
 }
 
@@ -500,6 +542,7 @@ impl From<PointerSource> for PointerKind {
         match source {
             PointerSource::Mouse => Self::Mouse,
             PointerSource::Touch { finger_id, .. } => Self::Touch(finger_id),
+            PointerSource::Pen { pen_id, .. } => Self::Pen(pen_id),
             PointerSource::Unknown => Self::Unknown,
         }
     }
@@ -521,6 +564,18 @@ pub enum ButtonSource {
         finger_id: FingerId,
         force: Option<Force>,
     },
+    /// See [`PointerSource::Pen`] for more details.
+    ///
+    /// ## Platform-specific
+    ///
+    /// **Windows:** Currently only supported on windows.
+    Pen {
+        pen_id: PointerId,
+        force: Option<Force>,
+        rotation: Option<f32>,
+        tilt_x: Option<f32>,
+        tilt_y: Option<f32>,
+    },
     Unknown(u16),
 }
 
@@ -532,6 +587,7 @@ impl ButtonSource {
         match self {
             ButtonSource::Mouse(mouse) => mouse,
             ButtonSource::Touch { .. } => MouseButton::Left,
+            ButtonSource::Pen { .. } => MouseButton::Left,
             ButtonSource::Unknown(button) => match button {
                 0 => MouseButton::Left,
                 1 => MouseButton::Middle,
@@ -596,6 +652,28 @@ impl FingerId {
     /// Construct a [`FingerId`] from the underlying integer.
     ///
     /// This should only be called with integers returned from [`FingerId::into_raw`].
+    #[allow(dead_code)]
+    pub(crate) const fn from_raw(id: usize) -> Self {
+        Self(id)
+    }
+}
+
+/// General purpose identifier for various types of positioned input event data.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PointerId(pub(crate) usize);
+
+impl PointerId {
+    /// Convert the [`PointerId`] into the underlying integer.
+    ///
+    /// This is useful if you need to pass the ID across an FFI boundary, or store it in an atomic.
+    #[allow(dead_code)]
+    pub(crate) const fn into_raw(self) -> usize {
+        self.0
+    }
+
+    /// Construct a [`PointerId`] from the underlying integer.
+    ///
+    /// This should only be called with integers returned from [`PointerId::into_raw`].
     #[allow(dead_code)]
     pub(crate) const fn from_raw(id: usize) -> Self {
         Self(id)
