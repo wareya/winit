@@ -559,8 +559,10 @@ pub enum PointerSource {
         state_info: PenStateInfo,
 
         /// Bitfield: is the button with bit index X currently pressed? Note that depending on the
-        /// device and platform, this might always be all zeroes even if the user is pressing
-        /// buttons or engaging the tip of the pen.
+        /// device, platform, and user-side driver configuration, this might always be all zeroes
+        /// even if the user is pressing buttons or engaging the tip of the pen.
+        ///
+        /// On some platforms, pens can toggle buttons mid-motion without any other events.
         button_state: Option<u32>,
 
         /// Describes how hard the pen was pressed.

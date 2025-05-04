@@ -89,7 +89,7 @@ impl PointerHandler {
                         finger_id,
                         force: Some(Force::Normalized(event.pressure().into())),
                     },
-                    PointerKind::Unknown => ButtonSource::Unknown(button.to_id()),
+                    _ => ButtonSource::Unknown(button.to_id()),
                 };
 
                 handler(
@@ -142,7 +142,7 @@ impl PointerHandler {
                         finger_id,
                         force: Some(Force::Normalized(event.pressure().into())),
                     },
-                    PointerKind::Unknown => ButtonSource::Unknown(button.to_id()),
+                    _ => ButtonSource::Unknown(button.to_id()),
                 };
 
                 handler(
@@ -217,7 +217,7 @@ impl PointerHandler {
                                 force: Some(Force::Normalized(event.pressure().into())),
                             }
                         },
-                        PointerKind::Unknown => todo!(),
+                        _ => ButtonSource::Unknown(button.to_id()),
                     };
 
                     button_handler(
@@ -248,7 +248,7 @@ impl PointerHandler {
                                     finger_id,
                                     force: Some(Force::Normalized(event.pressure().into())),
                                 },
-                                PointerKind::Unknown => PointerSource::Unknown,
+                                _ => PointerSource::Unknown,
                             },
                         )
                     }),

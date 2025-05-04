@@ -204,6 +204,14 @@ impl ApplicationHandler for App {
                     },
                 );
                 window.request_redraw();
+                #[cfg(web_platform)]
+                {
+                    std::thread::sleep(web_time::Duration::from_millis(1));
+                }
+                #[cfg(not(web_platform))]
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
             },
             _ => (),
         }
@@ -224,31 +232,29 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[cfg(web_platform)]
+use wasm_bindgen::prelude::wasm_bindgen;
+#[cfg(web_platform)]
+#[wasm_bindgen(start)]
+pub fn start() -> Result<(), wasm_bindgen::JsValue> {
+    #[cfg(web_platform)]
+    console_error_panic_hook::set_once();
+
+    tracing::init();
+
+    let event_loop = EventLoop::new().unwrap();
+
+    // For alternative loop run options see `pump_events` and `run_on_demand` examples.
+    event_loop.run_app(App::default()).unwrap();
+
+    Ok(())
+}
+
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
     use winit::platform::android::EventLoopBuilderExtAndroid;
     tracing::init();
-
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
-    println!("-------- Hello, world!!!!!!!");
 
     let event_loop = EventLoop::builder().with_android_app(app).build().unwrap();
     event_loop.run_app(App::default()).unwrap();

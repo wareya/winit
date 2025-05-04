@@ -390,7 +390,10 @@ name = "window"
 name = "child_window"
 
 # NativeActivity Android applications are built as C libraries.
-# Uncomment this when testing the tablet tester on Android.
+# Same for WASM applications.
+# Uncomment this block when testing the tablet tester on Android or WASM.
+#[lib]
+#crate-type=["cdylib", "rlib"]
 #[[example]]
 #name = "tablet"
 #crate-type=["lib", "cdylib"]
