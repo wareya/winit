@@ -283,8 +283,6 @@ impl PointerHandler {
                                         Reflect::get(js_event, &JsValue::from_str("tiltY"))
                                             .ok()
                                             .and_then(|v| v.as_f64());
-                                    // FIXME: double check if radians or degrees, also double check
-                                    // whether it's -n...n or 0...2n
                                     let tilt_altitude =
                                         Reflect::get(js_event, &JsValue::from_str("altitudeAngle"))
                                             .ok()
@@ -308,8 +306,8 @@ impl PointerHandler {
                                         twist: None,
                                         tilt_x: tilt_x.map(|x| x as f32),
                                         tilt_y: tilt_y.map(|x| x as f32),
-                                        tilt_altitude: tilt_altitude.map(|x| x as f32),
-                                        tilt_azimuth: tilt_azimuth.map(|x| x as f32),
+                                        tilt_altitude: tilt_altitude.map(|x| x.to_degrees() as f32 - 90.0),
+                                        tilt_azimuth: tilt_azimuth.map(|x| (x.to_degrees() as f32 + 90.0) % 360.0),
                                         button_state: None,             // TODO
                                         state_info: Default::default(), // TODO
                                     }
