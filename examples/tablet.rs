@@ -77,7 +77,6 @@ impl ApplicationHandler for App {
         let size = window.surface_size();
 
         // Suppress warning for unused properties in struct-like enum bindings.
-        #[allow(unused_variables)]
         match event {
             WindowEvent::CloseRequested => {
                 println!("Close was requested; stopping");
@@ -87,10 +86,9 @@ impl ApplicationHandler for App {
                 self.window.as_ref().expect("resize event without a window").request_redraw();
             },
             WindowEvent::PointerMoved {
-                device_id,
                 position,
-                primary,
-                source: winit::event::PointerSource::Pen { pen_id, force, rotation, tilt_x, tilt_y },
+                source: winit::event::PointerSource::Pen { force, rotation, tilt_x, tilt_y, .. },
+                ..
             } => {
                 self.posx = position.x as f32;
                 self.posy = position.y as f32;
@@ -101,14 +99,14 @@ impl ApplicationHandler for App {
             },
             WindowEvent::RedrawRequested => {
                 window.pre_present_notify();
-                fill::fill_window_with_fn(&**self.window.as_ref().unwrap(), |frame| {
+                fill::fill_window_with_fn(&**self.window.as_ref().unwrap(), |frame, stride| {
                     frame.fill(0xff181818);
 
                     draw_text(
                         frame,
-                        size.width as usize,
-                        20,
-                        20,
+                        stride,
+                        50,
+                        50,
                         &format!(
                             "{} {} {} {} {} {:.3}",
                             self.posx.round(),
@@ -144,8 +142,7 @@ impl ApplicationHandler for App {
                             let y = ypos as f32 + yoff * i;
 
                             let xpart = x.clamp(0.0, size.width as f32 - 1.0) as usize;
-                            let ypart = (y.clamp(0.0, size.height as f32 - 1.0) as usize)
-                                * size.width as usize;
+                            let ypart = y.clamp(0.0, size.height as f32 - 1.0) as usize * stride;
                             frame[ypart + xpart] = 0xffffffff;
                         }
                     };
@@ -177,7 +174,7 @@ impl ApplicationHandler for App {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+pub fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(web_platform)]
     console_error_panic_hook::set_once();
 
@@ -189,4 +186,34 @@ fn main() -> Result<(), Box<dyn Error>> {
     event_loop.run_app(App::default())?;
 
     Ok(())
+}
+
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub fn android_main(app: winit::platform::android::activity::AndroidApp) {
+    use winit::platform::android::EventLoopBuilderExtAndroid;
+    tracing::init();
+
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+    println!("-------- Hello, world!!!!!!!");
+
+    let event_loop = EventLoop::builder().with_android_app(app).build().unwrap();
+    event_loop.run_app(App::default()).unwrap();
 }

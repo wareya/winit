@@ -446,6 +446,37 @@ pub enum PointerKind {
     Unknown,
 }
 
+/// Describes what is currently going on with a tablet pen or similar device, except for the basics.
+/// This struct is primarily for features where support varies wildly between platforms.
+/// Any given field is None if the feature is unsupported by the platform.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PenStateInfo {
+    /// Is the pen currently in eraser mode?
+    ///
+    /// Note that values of Some do not mean that the pen actually supports an eraser mode, only
+    /// that the platform does.
+    ///
+    /// Depending on the platform and hardware, this might become false an input update earlier
+    /// than expected, e.g. immediately during/before a release rather than on the next update
+    /// after.
+    is_eraser: Option<bool>,
+
+    /// Is the pen currently flipped upside down, i.e. tip pointing "up" instead of "down"?
+    is_flipped: Option<bool>,
+
+    /// Describes how far away the pen is from the tracking surface.
+    ///
+    /// Reported in arbitrary, unspecified units, and varies between platforms and devices.
+    ///
+    /// **Windows:** Not supported.
+    ///
+    /// **Web:** Not supported.
+    distance: Option<f32>,
+
+    /// Describes how hard the pen is pressed *sideways*, from 0.0 to 1.0.
+    tangent_force: Option<f32>,
+}
+
 /// Represents the pointer type and its data for a pointer event.
 ///
 /// **Wayland/X11:** [`Unknown`](Self::Unknown) device types are converted to known variants by the
@@ -505,6 +536,17 @@ pub enum PointerSource {
     Pen {
         pen_id: PointerId,
 
+        /// General information about the current state of the pen, e.g. if it's in eraser mode,
+        /// explicitly has a button pressed, is flipped upside down, how far away it is from the
+        /// tablet, etc. Features where support varies a lot between platforms go in this
+        /// struct; and it is very likely for most of them to be None (as in unsupported).
+        state_info: PenStateInfo,
+
+        /// Bitfield: is the button with bit index X currently pressed? Note that depending on the
+        /// device and platform, this might always be all zeroes even if the user is pressing
+        /// buttons or engaging the tip of the pen.
+        button_state: Option<u32>,
+
         /// Describes how hard the pen was pressed.
         ///
         /// Conventionally, 0.0 means that the pen is not being pressed or is barely being pressed,
@@ -512,10 +554,6 @@ pub enum PointerSource {
         /// tablet is willing to measure. However, the exact mapping between physical force
         /// and measured force is unspecified and varies wildly from device to device; it
         /// does not even need to be monotonic, let alone start and end at 0.0 and 1.0.
-        ///
-        /// ## Platform-specific
-        ///
-        /// **Windows:** Currently only supported on windows.
         force: Option<Force>,
 
         /// If supported, rotation angle in degrees, clockwise, from 0.0 to 360.0.
@@ -526,13 +564,30 @@ pub enum PointerSource {
         /// angle, or away from the tablet surface, or anything. It might even drift.
         rotation: Option<f32>,
 
-        /// If supported, amount of left-right tilt, where -90.0 is fully tilted left and 90.0 is
-        /// right. 0.0 means untilted.
+        /// If supported, amount of left-right tilt, where -90.0 is fully tilted left and 90.0
+        /// right. 0.0 means non-tilted.
+        ///
+        /// To calculate the spherical point that the tilt angles point at, take their tangents as
+        /// y and x, giving you a position on a plane, and then divide by sqrt(x*x + y*y +
+        /// 1) to get a position on a sphere.
+        ///
+        /// Tilts that are precisely 90 degrees away from non-tilted are not fully supported by
+        /// this format. Therefore, it is recommended that you make sure that the tilt
+        /// values are not exactly 90 degrees before using them, e.g. clamping them to at
+        /// most 89.99 degrees.
         tilt_x: Option<f32>,
 
         /// If supported, amount of up-down tilt, where -90.0 is fully tilted up and 90.0 is down.
-        /// 0.0 means untilted.
+        /// 0.0 means non-tilted.
         tilt_y: Option<f32>,
+
+        /// If supported, amount of tilt away from the pen being perfectly upright, in degrees.
+        ///
+        /// Some devices or platforms report this instead of x/y axis tilt.
+        tilt_altitude: Option<f32>,
+
+        /// If supported, the azimuthal component (i.e. around the z axis) of of the pen's tilt.
+        tilt_azimuth: Option<f32>,
     },
     Unknown,
 }
@@ -571,10 +626,15 @@ pub enum ButtonSource {
     /// **Windows:** Currently only supported on windows.
     Pen {
         pen_id: PointerId,
+        state_info: PenStateInfo,
+        button_state: Option<u32>,
         force: Option<Force>,
+        distance: Option<f32>,
         rotation: Option<f32>,
         tilt_x: Option<f32>,
         tilt_y: Option<f32>,
+        tilt_altitude: Option<f32>,
+        tilt_azimuth: Option<f32>,
     },
     Unknown(u16),
 }
