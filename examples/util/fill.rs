@@ -101,7 +101,7 @@ mod platform {
         })
     }
 
-    pub fn fill_window_with_fn(window: &dyn Window, f: impl Fn(&mut [u32], usize)) {
+    pub fn fill_window_with_fn(window: &dyn Window, f: impl Fn(&mut [u32], usize, f64)) {
         GC.with(|gc| {
             let size = window.surface_size();
             let (Some(width), Some(height)) =
@@ -120,7 +120,7 @@ mod platform {
             surface.resize(width, height).expect("Failed to resize the softbuffer surface");
 
             let mut buffer = surface.buffer_mut().expect("Failed to get the softbuffer buffer");
-            f(&mut buffer);
+            f(&mut buffer, surface.stride(), 1.0); // TODO handle logical/physical scale difference
             buffer.present().expect("Failed to present the softbuffer buffer");
         })
     }
@@ -163,13 +163,18 @@ mod platform {
         // No-op on mobile platforms.
     }
 
-    pub fn fill_window_with_fn(window: &dyn winit::window::Window, f: impl Fn(&mut [u32], usize)) {
+    pub fn fill_window_with_fn(
+        window: &dyn winit::window::Window,
+        f: impl Fn(&mut [u32], usize, f64),
+    ) {
         use ndk::native_window::NativeWindow;
         use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
         let size = window.surface_size();
         let width = size.width as usize;
         let height = size.height as usize;
+
+        let scale = window.scale_factor();
 
         let handle = window.window_handle().unwrap();
         let native_window = if let RawWindowHandle::AndroidNdk(android_handle) = handle.as_raw() {
@@ -179,8 +184,8 @@ mod platform {
         };
         native_window
             .set_buffers_geometry(
-                width as i32 / 2,
-                height as i32 / 2,
+                (width as f64 / scale) as i32,
+                (height as f64 / scale) as i32,
                 Some(ndk::hardware_buffer_format::HardwareBufferFormat::R8G8B8A8_UNORM),
             )
             .unwrap();
@@ -194,7 +199,7 @@ mod platform {
             let dst = dst.as_mut_ptr() as *mut u32;
             let dst = std::slice::from_raw_parts_mut(dst, buf.height() * buf.stride() as usize);
 
-            f(dst, buf.stride() as usize);
+            f(dst, buf.stride() as usize, scale);
         }
     }
 

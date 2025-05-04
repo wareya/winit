@@ -74,8 +74,6 @@ impl ApplicationHandler for App {
             None => return,
         };
 
-        let size = window.surface_size();
-
         // Suppress warning for unused properties in struct-like enum bindings.
         match event {
             WindowEvent::CloseRequested => {
@@ -97,76 +95,88 @@ impl ApplicationHandler for App {
                 self.tilty = tilt_y.unwrap_or(0.0);
                 self.twist = rotation.unwrap_or(0.0);
             },
+            WindowEvent::PointerMoved { position, source, .. } => {
+                println!("{:?}", source);
+                self.posx = position.x as f32;
+                self.posy = position.y as f32;
+            },
             WindowEvent::RedrawRequested => {
                 window.pre_present_notify();
-                fill::fill_window_with_fn(&**self.window.as_ref().unwrap(), |frame, stride| {
-                    frame.fill(0xff181818);
+                fill::fill_window_with_fn(
+                    &**self.window.as_ref().unwrap(),
+                    |frame, stride, scale| {
+                        let frame_w = stride;
+                        let frame_h = frame.len() / stride;
 
-                    draw_text(
-                        frame,
-                        stride,
-                        50,
-                        50,
-                        &format!(
-                            "{} {} {} {} {} {:.3}",
-                            self.posx.round(),
-                            self.posy.round(),
-                            self.tiltx.round(),
-                            self.tilty.round(),
-                            self.twist.round(),
-                            self.force
-                        ),
-                    );
+                        frame.fill(0xff181818);
 
-                    let y_rad = self.tiltx as f32 * (1.57079632679 / 90.0);
-                    let x_rad = self.tilty as f32 * (1.57079632679 / 90.0);
+                        draw_text(
+                            frame,
+                            stride,
+                            50,
+                            50,
+                            &format!(
+                                "{} {} {} {} {} {:.3}",
+                                self.posx.round(),
+                                self.posy.round(),
+                                self.tiltx.round(),
+                                self.tilty.round(),
+                                self.twist.round(),
+                                self.force
+                            ),
+                        );
 
-                    // Clamp to ~89.95 degrees because 90 degree tilts point at points that can't
-                    // be described in terms of order-independent spherical tilt.
-                    let xoff = -(y_rad.clamp(-1.57, 1.57)).tan();
-                    let yoff = -(x_rad.clamp(-1.57, 1.57)).tan();
+                        let y_rad = self.tiltx as f32 * (1.57079632679 / 90.0);
+                        let x_rad = self.tilty as f32 * (1.57079632679 / 90.0);
 
-                    // Normalize from point on a plane to a point on a sphere.
-                    let d = (xoff * xoff + yoff * yoff + 1.0).sqrt();
-                    let xoff = xoff / d;
-                    let yoff = yoff / d;
+                        // Clamp to ~89.95 degrees because 90 degree tilts point at points that
+                        // can't be described in terms of order-independent
+                        // spherical tilt.
+                        let xoff = -(y_rad.clamp(-1.57, 1.57)).tan();
+                        let yoff = -(x_rad.clamp(-1.57, 1.57)).tan();
 
-                    let xoff = xoff * 400.0;
-                    let yoff = yoff * 400.0;
+                        // Normalize from point on a plane to a point on a sphere.
+                        let d = (xoff * xoff + yoff * yoff + 1.0).sqrt();
+                        let xoff = xoff / d;
+                        let yoff = yoff / d;
 
-                    let mut draw_line = |xpos: f32, ypos: f32, xoff: f32, yoff: f32| {
-                        for i in 0..160 {
-                            let i = i as f32 * (1.0 / 160.0);
+                        let xoff = xoff * 400.0;
+                        let yoff = yoff * 400.0;
 
-                            let x = xpos as f32 + xoff * i;
-                            let y = ypos as f32 + yoff * i;
+                        let mut draw_line = |xpos: f32, ypos: f32, xoff: f32, yoff: f32| {
+                            for i in 0..160 {
+                                let i = i as f32 * (1.0 / 160.0);
 
-                            let xpart = x.clamp(0.0, size.width as f32 - 1.0) as usize;
-                            let ypart = y.clamp(0.0, size.height as f32 - 1.0) as usize * stride;
-                            frame[ypart + xpart] = 0xffffffff;
-                        }
-                    };
+                                let x = (xpos as f32 + xoff * i) / scale as f32;
+                                let y = (ypos as f32 + yoff * i) / scale as f32;
 
-                    // Tilt indicator.
-                    draw_line(self.posx, self.posy, xoff, yoff);
+                                let xpart = x.clamp(0.0, frame_w as f32 - 1.0) as usize;
+                                let ypart = y.clamp(0.0, frame_h as f32 - 1.0) as usize * stride;
+                                frame[ypart + xpart] = 0xffffffff;
+                            }
+                        };
 
-                    let dx = (self.twist * (1.57079632679 / 90.0)).sin();
-                    let dy = -(self.twist * (1.57079632679 / 90.0)).cos();
+                        // Tilt indicator.
+                        draw_line(self.posx, self.posy, xoff, yoff);
 
-                    // Double-checking line for whether the azimuth is being respected.
-                    // Only works on devices with no twist support, and only certain ones.
-                    // draw_line(self.posx, self.posy + 10.0, dx * 400.0, dy * 400.0);
+                        let dx = (self.twist * (1.57079632679 / 90.0)).sin();
+                        let dy = -(self.twist * (1.57079632679 / 90.0)).cos();
 
-                    // Twist indicator.
-                    draw_line(self.posx + xoff, self.posy + yoff, dx * 40.0, dy * 40.0);
-                    draw_line(self.posx + xoff, self.posy + yoff, dy * 40.0, -dx * 40.0);
-                    draw_line(self.posx + xoff, self.posy + yoff, -dy * 40.0, dx * 40.0);
+                        // Double-checking line for whether the azimuth is being respected.
+                        // Only works on devices with no twist support, and only certain ones.
+                        // draw_line(self.posx, self.posy + 10.0, dx * 400.0, dy * 400.0);
 
-                    // Pressure indicator.
-                    let d = 100.0 * self.force;
-                    draw_line(self.posx + xoff - d, self.posy + yoff + d, d * 2.0, 0.0);
-                    draw_line(self.posx + xoff - d, self.posy + yoff - d, d * 2.0, 0.0);
-                });
+                        // Twist indicator.
+                        draw_line(self.posx + xoff, self.posy + yoff, dx * 40.0, dy * 40.0);
+                        draw_line(self.posx + xoff, self.posy + yoff, dy * 40.0, -dx * 40.0);
+                        draw_line(self.posx + xoff, self.posy + yoff, -dy * 40.0, dx * 40.0);
+
+                        // Pressure indicator.
+                        let d = 100.0 * self.force;
+                        draw_line(self.posx + xoff - d, self.posy + yoff + d, d * 2.0, 0.0);
+                        draw_line(self.posx + xoff - d, self.posy + yoff - d, d * 2.0, 0.0);
+                    },
+                );
                 window.request_redraw();
             },
             _ => (),
