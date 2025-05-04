@@ -89,6 +89,17 @@ impl PointerHandler {
                         finger_id,
                         force: Some(Force::Normalized(event.pressure().into())),
                     },
+                    PointerKind::Pen(pointer_id) => ButtonSource::Pen {
+                        pen_id: pointer_id,
+                        force: Some(Force::Normalized(event.pressure().into())),
+                        twist: None,
+                        tilt_x: None,
+                        tilt_y: None,
+                        tilt_altitude: None,
+                        tilt_azimuth: None,
+                        button_state: None,
+                        state_info: Default::default(),
+                    },
                     _ => ButtonSource::Unknown(button.to_id()),
                 };
 
@@ -141,6 +152,17 @@ impl PointerHandler {
                     PointerKind::Touch(finger_id) => ButtonSource::Touch {
                         finger_id,
                         force: Some(Force::Normalized(event.pressure().into())),
+                    },
+                    PointerKind::Pen(pointer_id) => ButtonSource::Pen {
+                        pen_id: pointer_id,
+                        force: Some(Force::Normalized(event.pressure().into())),
+                        twist: None,
+                        tilt_x: None,
+                        tilt_y: None,
+                        tilt_altitude: None,
+                        tilt_azimuth: None,
+                        button_state: None,
+                        state_info: Default::default(),
                     },
                     _ => ButtonSource::Unknown(button.to_id()),
                 };
@@ -247,6 +269,50 @@ impl PointerHandler {
                                 PointerKind::Touch(finger_id) => PointerSource::Touch {
                                     finger_id,
                                     force: Some(Force::Normalized(event.pressure().into())),
+                                },
+                                PointerKind::Pen(pointer_id) => {
+                                    // Workaround for https://github.com/rustwasm/wasm-bindgen/issues/4501
+                                    use js_sys::Reflect;
+                                    use wasm_bindgen::JsValue;
+                                    let js_event: &JsValue = event.as_ref();
+                                    let tilt_x =
+                                        Reflect::get(js_event, &JsValue::from_str("tiltX"))
+                                            .ok()
+                                            .and_then(|v| v.as_f64());
+                                    let tilt_y =
+                                        Reflect::get(js_event, &JsValue::from_str("tiltY"))
+                                            .ok()
+                                            .and_then(|v| v.as_f64());
+                                    // FIXME: double check if radians or degrees, also double check
+                                    // whether it's -n...n or 0...2n
+                                    let tilt_altitude =
+                                        Reflect::get(js_event, &JsValue::from_str("altitudeAngle"))
+                                            .ok()
+                                            .and_then(|v| v.as_f64());
+                                    let tilt_azimuth =
+                                        Reflect::get(js_event, &JsValue::from_str("azimuthAngle"))
+                                            .ok()
+                                            .and_then(|v| v.as_f64());
+
+                                    web_sys::console::log_1(
+                                        &format!(
+                                            "TILT INFO: {:?} {:?} {:?} {:?}",
+                                            tilt_x, tilt_y, tilt_altitude, tilt_azimuth
+                                        )
+                                        .into(),
+                                    );
+
+                                    PointerSource::Pen {
+                                        pen_id: pointer_id,
+                                        force: Some(Force::Normalized(event.pressure().into())),
+                                        twist: None,
+                                        tilt_x: tilt_x.map(|x| x as f32),
+                                        tilt_y: tilt_y.map(|x| x as f32),
+                                        tilt_altitude: tilt_altitude.map(|x| x as f32),
+                                        tilt_azimuth: tilt_azimuth.map(|x| x as f32),
+                                        button_state: None,             // TODO
+                                        state_info: Default::default(), // TODO
+                                    }
                                 },
                                 _ => PointerSource::Unknown,
                             },

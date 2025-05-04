@@ -1,6 +1,7 @@
 Cargo.lock
 target/
 rls/
+pkg/
 .vscode/
 *~
 #*#

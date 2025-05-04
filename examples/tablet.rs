@@ -204,10 +204,6 @@ impl ApplicationHandler for App {
                     },
                 );
                 window.request_redraw();
-                #[cfg(web_platform)]
-                {
-                    std::thread::sleep(web_time::Duration::from_millis(1));
-                }
                 #[cfg(not(web_platform))]
                 {
                     std::thread::sleep(std::time::Duration::from_millis(1));
