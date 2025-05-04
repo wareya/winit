@@ -89,16 +89,40 @@ impl PointerHandler {
                         finger_id,
                         force: Some(Force::Normalized(event.pressure().into())),
                     },
-                    PointerKind::Pen(pointer_id) => ButtonSource::Pen {
-                        pen_id: pointer_id,
-                        force: Some(Force::Normalized(event.pressure().into())),
-                        twist: None,
-                        tilt_x: None,
-                        tilt_y: None,
-                        tilt_altitude: None,
-                        tilt_azimuth: None,
-                        button_state: None,
-                        state_info: Default::default(),
+                    PointerKind::Pen(pointer_id) => {
+                        use js_sys::Reflect;
+                        use wasm_bindgen::JsValue;
+                        let js_event: &JsValue = event.as_ref();
+                        let tilt_altitude =
+                            Reflect::get(js_event, &JsValue::from_str("altitudeAngle"))
+                                .ok()
+                                .and_then(|v| v.as_f64())
+                                .map(|x| x.to_degrees() as f32 - 90.0);
+                        let tilt_azimuth =
+                            Reflect::get(js_event, &JsValue::from_str("azimuthAngle"))
+                                .ok()
+                                .and_then(|v| v.as_f64())
+                                .map(|x| (x.to_degrees() as f32 + 90.0) % 360.0);
+
+                        let m_event: &MouseEvent = event.as_ref();
+                        let button_state = Some(m_event.buttons() as u32);
+                        let mut state_info = Default::default();
+                        // Windows Web clients use the 6th bit (1<<5) of the buttons field as
+                        // whether the pen is in eraser mode. This seems to be the only way to
+                        // detect eraser mode on the web in general, so we won't bother trying to
+                        // detect the web host platform.
+                        state_info.is_eraser = Some(state_info & 32);
+                        PointerSource::Pen {
+                            pen_id: pointer_id,
+                            force: Some(Force::Normalized(event.pressure().into())),
+                            twist: Some(event.twist() as f32),
+                            tilt_x: Some(event.twist() as f32),
+                            tilt_y: Some(event.twist() as f32),
+                            tilt_altitude,
+                            tilt_azimuth,
+                            button_state,
+                            state_info,
+                        }
                     },
                     _ => ButtonSource::Unknown(button.to_id()),
                 };
@@ -153,16 +177,36 @@ impl PointerHandler {
                         finger_id,
                         force: Some(Force::Normalized(event.pressure().into())),
                     },
-                    PointerKind::Pen(pointer_id) => ButtonSource::Pen {
-                        pen_id: pointer_id,
-                        force: Some(Force::Normalized(event.pressure().into())),
-                        twist: None,
-                        tilt_x: None,
-                        tilt_y: None,
-                        tilt_altitude: None,
-                        tilt_azimuth: None,
-                        button_state: None,
-                        state_info: Default::default(),
+                    PointerKind::Pen(pointer_id) => {
+                        use js_sys::Reflect;
+                        use wasm_bindgen::JsValue;
+                        let js_event: &JsValue = event.as_ref();
+                        let tilt_altitude =
+                            Reflect::get(js_event, &JsValue::from_str("altitudeAngle"))
+                                .ok()
+                                .and_then(|v| v.as_f64())
+                                .map(|x| x.to_degrees() as f32 - 90.0);
+                        let tilt_azimuth =
+                            Reflect::get(js_event, &JsValue::from_str("azimuthAngle"))
+                                .ok()
+                                .and_then(|v| v.as_f64())
+                                .map(|x| (x.to_degrees() as f32 + 90.0) % 360.0);
+
+                        let m_event: &MouseEvent = event.as_ref();
+                        let button_state = Some(m_event.buttons() as u32);
+                        let mut state_info = Default::default();
+                        state_info.is_eraser = Some(state_info & 32);
+                        PointerSource::Pen {
+                            pen_id: pointer_id,
+                            force: Some(Force::Normalized(event.pressure().into())),
+                            twist: Some(event.twist() as f32),
+                            tilt_x: Some(event.twist() as f32),
+                            tilt_y: Some(event.twist() as f32),
+                            tilt_altitude,
+                            tilt_azimuth,
+                            button_state,
+                            state_info,
+                        }
                     },
                     _ => ButtonSource::Unknown(button.to_id()),
                 };
@@ -271,45 +315,34 @@ impl PointerHandler {
                                     force: Some(Force::Normalized(event.pressure().into())),
                                 },
                                 PointerKind::Pen(pointer_id) => {
-                                    // Workaround for https://github.com/rustwasm/wasm-bindgen/issues/4501
                                     use js_sys::Reflect;
                                     use wasm_bindgen::JsValue;
                                     let js_event: &JsValue = event.as_ref();
-                                    let tilt_x =
-                                        Reflect::get(js_event, &JsValue::from_str("tiltX"))
-                                            .ok()
-                                            .and_then(|v| v.as_f64());
-                                    let tilt_y =
-                                        Reflect::get(js_event, &JsValue::from_str("tiltY"))
-                                            .ok()
-                                            .and_then(|v| v.as_f64());
                                     let tilt_altitude =
                                         Reflect::get(js_event, &JsValue::from_str("altitudeAngle"))
                                             .ok()
-                                            .and_then(|v| v.as_f64());
+                                            .and_then(|v| v.as_f64())
+                                            .map(|x| x.to_degrees() as f32 - 90.0);
                                     let tilt_azimuth =
                                         Reflect::get(js_event, &JsValue::from_str("azimuthAngle"))
                                             .ok()
-                                            .and_then(|v| v.as_f64());
+                                            .and_then(|v| v.as_f64())
+                                            .map(|x| (x.to_degrees() as f32 + 90.0) % 360.0);
 
-                                    web_sys::console::log_1(
-                                        &format!(
-                                            "TILT INFO: {:?} {:?} {:?} {:?}",
-                                            tilt_x, tilt_y, tilt_altitude, tilt_azimuth
-                                        )
-                                        .into(),
-                                    );
-
+                                    let m_event: &MouseEvent = event.as_ref();
+                                    let button_state = Some(m_event.buttons() as u32);
+                                    let mut state_info = Default::default();
+                                    state_info.is_eraser = Some(state_info & 32);
                                     PointerSource::Pen {
                                         pen_id: pointer_id,
                                         force: Some(Force::Normalized(event.pressure().into())),
-                                        twist: None,
-                                        tilt_x: tilt_x.map(|x| x as f32),
-                                        tilt_y: tilt_y.map(|x| x as f32),
-                                        tilt_altitude: tilt_altitude.map(|x| x.to_degrees() as f32 - 90.0),
-                                        tilt_azimuth: tilt_azimuth.map(|x| (x.to_degrees() as f32 + 90.0) % 360.0),
-                                        button_state: None,             // TODO
-                                        state_info: Default::default(), // TODO
+                                        twist: Some(event.twist() as f32),
+                                        tilt_x: Some(event.twist() as f32),
+                                        tilt_y: Some(event.twist() as f32),
+                                        tilt_altitude,
+                                        tilt_azimuth,
+                                        button_state,
+                                        state_info,
                                     }
                                 },
                                 _ => PointerSource::Unknown,

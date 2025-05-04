@@ -554,8 +554,10 @@ pub enum PointerSource {
 
         /// General information about the current state of the pen, e.g. if it's in eraser mode,
         /// explicitly has a button pressed, is flipped upside down, how far away it is from the
-        /// tablet, etc. Features where support varies a lot between platforms go in this
-        /// struct; and it is very likely for most of them to be None (as in unsupported).
+        /// tablet, etc.
+        ///
+        /// Features where support varies a lot between platforms go in this struct, and it is very
+        /// likely for most of them to be None (as in unsupported).
         state_info: PenStateInfo,
 
         /// Bitfield: is the button with bit index X currently pressed? Note that depending on the
@@ -580,6 +582,10 @@ pub enum PointerSource {
         /// There is no canonical meaning of zero rotation, so the null rotation varies
         /// from device to device; it might mean buttons towards user, or off at a weird
         /// angle, or away from the tablet surface, or anything. It might even drift.
+        ///
+        /// This value may report as an actual number even if it is not actually supported. This is
+        /// because some devices/drivers report it but always report 0 (or some other value) even
+        /// if they know they don't support it.
         twist: Option<f32>,
 
         /// If supported, amount of left-right tilt, where -90.0 is fully tilted left and 90.0

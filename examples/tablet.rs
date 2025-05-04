@@ -25,9 +25,16 @@ fn draw_char(frame: &mut [u32], width: usize, x: usize, y: usize, ch: char) {
     }
 }
 
-fn draw_text(frame: &mut [u32], width: usize, x: usize, y: usize, text: &str) {
-    for (i, ch) in text.chars().enumerate() {
-        draw_char(frame, width, x + i * 8, y, ch);
+fn draw_text(frame: &mut [u32], width: usize, mut x: usize, mut y: usize, text: &str) {
+    let x_init = x;
+    for ch in text.chars() {
+        if ch == '\n' {
+            x = x_init;
+            y += 8;
+        } else {
+            draw_char(frame, width, x, y, ch);
+            x += 8;
+        }
     }
 }
 
@@ -108,8 +115,7 @@ impl ApplicationHandler for App {
                     let x_rad = (y as f32).to_radians();
 
                     // Clamp to ~89.95 degrees because 90 degree tilts point at points that
-                    // can't be described in terms of order-independent
-                    // spherical tilt.
+                    // can't be described in terms of order-independent spherical tilt.
                     let xoff = -(y_rad.clamp(-1.57, 1.57)).tan();
                     let yoff = -(x_rad.clamp(-1.57, 1.57)).tan();
 
@@ -118,9 +124,9 @@ impl ApplicationHandler for App {
                     self.spherical_tilt_x = xoff / d;
                     self.spherical_tilt_y = yoff / d;
                 }
+                // Azimuth/altitude are more precise, so override the previous result with them if
+                // they exist.
                 if let (Some(a), Some(o)) = (tilt_azimuth, tilt_altitude) {
-                    println!("{} {}", a, o);
-
                     let a_rad = (a as f32).to_radians();
                     let o_rad = (o as f32).to_radians();
 
@@ -152,10 +158,11 @@ impl ApplicationHandler for App {
                         draw_text(
                             frame,
                             stride,
-                            50,
+                            20,
                             50,
                             &format!(
-                                "{} {} {:.3} {:.3} {} {:.3} {:.3}",
+                                "x: {}\ny: {}\ntilt x: {:.3}\ntilt y: {:.3}\ntwist: {}\npressure: \
+                                 {:.3}\nheight: {:.3}",
                                 self.posx.round(),
                                 self.posy.round(),
                                 self.spherical_tilt_x,
@@ -181,6 +188,12 @@ impl ApplicationHandler for App {
                                 frame[ypart + xpart] = 0xffffffff;
                             }
                         };
+
+                        // "This is where the cursor is" indicator.
+                        draw_line(self.posx, self.posy, 10.0, 10.0);
+                        draw_line(self.posx, self.posy, 0.0, 15.0);
+                        draw_line(self.posx, self.posy + 15.0, 10.0, -5.0);
+                        draw_line(self.posx + 5.0, self.posy + 12.5, 4.0, 8.0);
 
                         // Tilt indicator.
                         draw_line(self.posx, self.posy, xoff, yoff);
