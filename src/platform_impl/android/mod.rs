@@ -14,7 +14,7 @@ use crate::application::ApplicationHandler;
 use crate::cursor::Cursor;
 use crate::dpi::{PhysicalInsets, PhysicalPosition, PhysicalSize, Position, Size};
 use crate::error::{EventLoopError, NotSupportedError, RequestError};
-use crate::event::{self, DeviceId, FingerId, Force, StartCause, SurfaceSizeWriter};
+use crate::event::{self, DeviceId, FingerId, Force, PointerId, StartCause, SurfaceSizeWriter};
 use crate::event_loop::{
     ActiveEventLoop as RootActiveEventLoop, ControlFlow, DeviceEvents,
     EventLoopProxy as CoreEventLoopProxy, EventLoopProxyProvider,
@@ -328,7 +328,7 @@ impl EventLoop {
                     | MotionAction::PointerUp => Some(Box::new(std::iter::once(
                         motion_event.pointer_at_index(motion_event.pointer_index()),
                     ))),
-                    MotionAction::Move | MotionAction::Cancel => {
+                    MotionAction::Move | MotionAction::HoverMove | MotionAction::Cancel => {
                         Some(Box::new(motion_event.pointers()))
                     },
                     // TODO mouse events
@@ -343,7 +343,11 @@ impl EventLoop {
                          pointer={pointer:?}, tool_type={tool_type:?}"
                     );
                     let finger_id = FingerId::from_raw(pointer.pointer_id() as usize);
+                    let pointer_id = PointerId::from_raw(pointer.pointer_id() as usize);
                     let force = Some(Force::Normalized(pointer.pressure() as f64));
+
+                    use android_activity::input::Axis::*;
+                    println!("DISTANCE: {}", pointer.axis_value(Distance));
 
                     match action {
                         MotionAction::Down | MotionAction::PointerDown => {
@@ -381,7 +385,7 @@ impl EventLoop {
                             };
                             app.window_event(&self.window_target, GLOBAL_WINDOW, event);
                         },
-                        MotionAction::Move => {
+                        MotionAction::Move | MotionAction::HoverMove => {
                             let primary = self.primary_pointer == Some(finger_id);
                             let event = event::WindowEvent::PointerMoved {
                                 device_id,
@@ -390,6 +394,34 @@ impl EventLoop {
                                 source: match tool_type {
                                     android_activity::input::ToolType::Finger => {
                                         event::PointerSource::Touch { finger_id, force }
+                                    },
+                                    // TODO other stylus events
+                                    android_activity::input::ToolType::Stylus
+                                    | android_activity::input::ToolType::Eraser => {
+                                        let mut state_info = event::PenStateInfo::default();
+                                        state_info.distance =
+                                            Some(crate::event::Distance::Unnormalized(
+                                                pointer.axis_value(Distance) as f64,
+                                            ));
+                                        state_info.is_eraser = Some(match tool_type {
+                                            android_activity::input::ToolType::Eraser => true,
+                                            _ => false,
+                                        });
+                                        event::PointerSource::Pen {
+                                            pen_id: pointer_id,
+                                            force,
+                                            twist: None,
+                                            tilt_x: None,
+                                            tilt_y: None,
+                                            tilt_altitude: Some(
+                                                pointer.axis_value(Tilt).to_degrees(),
+                                            ),
+                                            tilt_azimuth: Some(
+                                                pointer.axis_value(Orientation).to_degrees(),
+                                            ),
+                                            button_state: None, // TODO
+                                            state_info,
+                                        }
                                     },
                                     // TODO mouse events
                                     android_activity::input::ToolType::Mouse => continue,

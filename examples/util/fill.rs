@@ -120,7 +120,7 @@ mod platform {
             surface.resize(width, height).expect("Failed to resize the softbuffer surface");
 
             let mut buffer = surface.buffer_mut().expect("Failed to get the softbuffer buffer");
-            f(&mut buffer, surface.stride(), 1.0); // TODO handle logical/physical scale difference
+            f(&mut buffer, u32::from(width) as usize, 1.0); // TODO handle logical/physical scale difference
             buffer.present().expect("Failed to present the softbuffer buffer");
         })
     }

@@ -2045,8 +2045,7 @@ unsafe fn public_window_callback_inner(
                         continue;
                     }
 
-                    let (force, rotation, tilt_x, tilt_y) = if let PT_TOUCH =
-                        pointer_info.pointerType
+                    let (force, twist, tilt_x, tilt_y) = if let PT_TOUCH = pointer_info.pointerType
                     {
                         let mut touch_info = mem::MaybeUninit::uninit();
                         util::GET_POINTER_TOUCH_INFO.and_then(|GetPointerTouchInfo| {
@@ -2118,9 +2117,13 @@ unsafe fn public_window_callback_inner(
                                 ButtonSource::Pen {
                                     pen_id: pointer_id,
                                     force,
-                                    rotation,
+                                    twist,
                                     tilt_x,
                                     tilt_y,
+                                    tilt_altitude: None,
+                                    tilt_azimuth: None,
+                                    button_state: None,
+                                    state_info: Default::default(),
                                 }
                             } else {
                                 ButtonSource::Unknown(0)
@@ -2138,9 +2141,13 @@ unsafe fn public_window_callback_inner(
                                 ButtonSource::Pen {
                                     pen_id: pointer_id,
                                     force,
-                                    rotation,
+                                    twist,
                                     tilt_x,
                                     tilt_y,
+                                    tilt_altitude: None,
+                                    tilt_azimuth: None,
+                                    button_state: None,
+                                    state_info: Default::default(),
                                 }
                             } else {
                                 ButtonSource::Unknown(0)
@@ -2169,9 +2176,13 @@ unsafe fn public_window_callback_inner(
                                 PointerSource::Pen {
                                     pen_id: pointer_id,
                                     force,
-                                    rotation,
+                                    twist,
                                     tilt_x,
                                     tilt_y,
+                                    tilt_altitude: None,
+                                    tilt_azimuth: None,
+                                    button_state: None,
+                                    state_info: Default::default(),
                                 }
                             } else {
                                 PointerSource::Unknown

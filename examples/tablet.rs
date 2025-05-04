@@ -45,8 +45,10 @@ struct App {
 
     twist: f32,
 
-    tiltx: f32,
-    tilty: f32,
+    spherical_tilt_x: f32,
+    spherical_tilt_y: f32,
+
+    distance: f32,
 }
 
 #[path = "util/fill.rs"]
@@ -85,20 +87,57 @@ impl ApplicationHandler for App {
             },
             WindowEvent::PointerMoved {
                 position,
-                source: winit::event::PointerSource::Pen { force, rotation, tilt_x, tilt_y, .. },
+                source:
+                    winit::event::PointerSource::Pen {
+                        force,
+                        twist,
+                        tilt_x,
+                        tilt_y,
+                        tilt_azimuth,
+                        tilt_altitude,
+                        state_info: winit::event::PenStateInfo { distance, .. },
+                        ..
+                    },
                 ..
             } => {
                 self.posx = position.x as f32;
                 self.posy = position.y as f32;
                 self.force = force.map(|x| x.normalized()).unwrap_or(0.0) as f32;
-                self.tiltx = tilt_x.unwrap_or(0.0);
-                self.tilty = tilt_y.unwrap_or(0.0);
-                self.twist = rotation.unwrap_or(0.0);
-            },
-            WindowEvent::PointerMoved { position, source, .. } => {
-                println!("{:?}", source);
-                self.posx = position.x as f32;
-                self.posy = position.y as f32;
+                if let (Some(x), Some(y)) = (tilt_x, tilt_y) {
+                    let y_rad = (x as f32).to_radians();
+                    let x_rad = (y as f32).to_radians();
+
+                    // Clamp to ~89.95 degrees because 90 degree tilts point at points that
+                    // can't be described in terms of order-independent
+                    // spherical tilt.
+                    let xoff = -(y_rad.clamp(-1.57, 1.57)).tan();
+                    let yoff = -(x_rad.clamp(-1.57, 1.57)).tan();
+
+                    // Normalize from point on a plane to a point on a sphere.
+                    let d = (xoff * xoff + yoff * yoff + 1.0).sqrt();
+                    self.spherical_tilt_x = xoff / d;
+                    self.spherical_tilt_y = yoff / d;
+                }
+                if let (Some(a), Some(o)) = (tilt_azimuth, tilt_altitude) {
+                    println!("{} {}", a, o);
+
+                    let a_rad = (a as f32).to_radians();
+                    let o_rad = (o as f32).to_radians();
+
+                    self.spherical_tilt_x = o_rad.sin() * a_rad.sin();
+                    self.spherical_tilt_y = o_rad.sin() * -a_rad.cos();
+                }
+                if let Some(twist) = twist {
+                    self.twist = twist;
+                } else {
+                    self.twist = (self.spherical_tilt_x.atan2(-self.spherical_tilt_y)).to_degrees();
+                }
+
+                self.distance = match distance {
+                    Some(winit::event::Distance::Unnormalized(x)) => x as f32,
+                    Some(winit::event::Distance::Normalized(x)) => x as f32,
+                    _ => 0.0,
+                };
             },
             WindowEvent::RedrawRequested => {
                 window.pre_present_notify();
@@ -116,32 +155,19 @@ impl ApplicationHandler for App {
                             50,
                             50,
                             &format!(
-                                "{} {} {} {} {} {:.3}",
+                                "{} {} {:.3} {:.3} {} {:.3} {:.3}",
                                 self.posx.round(),
                                 self.posy.round(),
-                                self.tiltx.round(),
-                                self.tilty.round(),
+                                self.spherical_tilt_x,
+                                self.spherical_tilt_y,
                                 self.twist.round(),
-                                self.force
+                                self.force,
+                                self.distance,
                             ),
                         );
 
-                        let y_rad = self.tiltx as f32 * (1.57079632679 / 90.0);
-                        let x_rad = self.tilty as f32 * (1.57079632679 / 90.0);
-
-                        // Clamp to ~89.95 degrees because 90 degree tilts point at points that
-                        // can't be described in terms of order-independent
-                        // spherical tilt.
-                        let xoff = -(y_rad.clamp(-1.57, 1.57)).tan();
-                        let yoff = -(x_rad.clamp(-1.57, 1.57)).tan();
-
-                        // Normalize from point on a plane to a point on a sphere.
-                        let d = (xoff * xoff + yoff * yoff + 1.0).sqrt();
-                        let xoff = xoff / d;
-                        let yoff = yoff / d;
-
-                        let xoff = xoff * 400.0;
-                        let yoff = yoff * 400.0;
+                        let xoff = self.spherical_tilt_x * 400.0;
+                        let yoff = self.spherical_tilt_y * 400.0;
 
                         let mut draw_line = |xpos: f32, ypos: f32, xoff: f32, yoff: f32| {
                             for i in 0..160 {

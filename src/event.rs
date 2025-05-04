@@ -446,10 +446,28 @@ pub enum PointerKind {
     Unknown,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Distance {
+    /// Distance in unknown units.
+    ///
+    /// ## Platform-specific
+    ///
+    /// **Android:** A common unit (e.g. on Samsung tablets) is micrometers (i.e. 100.0 is
+    /// 10mm/1cm), but there is no way to check to check whether the device is meant to be
+    /// calibrated to that value, nor is it a documented standard. Therefore it's sent as
+    /// unnormalized instead of normalized. If the API docs listed this as the actual unit,
+    /// then it would be normalized.
+    Unnormalized(f64),
+    /// Distance in meaningful units, but the exact unit range is platform-specific.
+    ///
+    /// Platform ranges: <TODO>
+    Normalized(f64),
+}
+
 /// Describes what is currently going on with a tablet pen or similar device, except for the basics.
 /// This struct is primarily for features where support varies wildly between platforms.
 /// Any given field is None if the feature is unsupported by the platform.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct PenStateInfo {
     /// Is the pen currently in eraser mode?
     ///
@@ -459,22 +477,20 @@ pub struct PenStateInfo {
     /// Depending on the platform and hardware, this might become false an input update earlier
     /// than expected, e.g. immediately during/before a release rather than on the next update
     /// after.
-    is_eraser: Option<bool>,
+    pub is_eraser: Option<bool>,
 
     /// Is the pen currently flipped upside down, i.e. tip pointing "up" instead of "down"?
-    is_flipped: Option<bool>,
+    pub is_flipped: Option<bool>,
 
     /// Describes how far away the pen is from the tracking surface.
-    ///
-    /// Reported in arbitrary, unspecified units, and varies between platforms and devices.
     ///
     /// **Windows:** Not supported.
     ///
     /// **Web:** Not supported.
-    distance: Option<f32>,
+    pub distance: Option<Distance>,
 
     /// Describes how hard the pen is pressed *sideways*, from 0.0 to 1.0.
-    tangent_force: Option<f32>,
+    pub tangent_force: Option<f32>,
 }
 
 /// Represents the pointer type and its data for a pointer event.
@@ -556,13 +572,13 @@ pub enum PointerSource {
         /// does not even need to be monotonic, let alone start and end at 0.0 and 1.0.
         force: Option<Force>,
 
-        /// If supported, rotation angle in degrees, clockwise, from 0.0 to 360.0.
+        /// If supported, twist angle in degrees, clockwise, from 0.0 to 360.0.
         ///
-        /// Rotation for pen devices is rotation along the main axis of the pen, i.e. "twist".
+        /// Twist for pen devices is rotation along the main axis of the pen, i.e. "twist".
         /// There is no canonical meaning of zero rotation, so the null rotation varies
         /// from device to device; it might mean buttons towards user, or off at a weird
         /// angle, or away from the tablet surface, or anything. It might even drift.
-        rotation: Option<f32>,
+        twist: Option<f32>,
 
         /// If supported, amount of left-right tilt, where -90.0 is fully tilted left and 90.0
         /// right. 0.0 means non-tilted.
@@ -629,8 +645,7 @@ pub enum ButtonSource {
         state_info: PenStateInfo,
         button_state: Option<u32>,
         force: Option<Force>,
-        distance: Option<f32>,
-        rotation: Option<f32>,
+        twist: Option<f32>,
         tilt_x: Option<f32>,
         tilt_y: Option<f32>,
         tilt_altitude: Option<f32>,

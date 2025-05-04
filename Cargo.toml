@@ -389,10 +389,11 @@ name = "window"
 [[example]]
 name = "child_window"
 
-# NativeActivity Android applications are built as C libraries
-[[example]]
-name = "tablet"
-crate-type=["lib", "cdylib"]
+# NativeActivity Android applications are built as C libraries.
+# Uncomment this when testing the tablet tester on Android.
+#[[example]]
+#name = "tablet"
+#crate-type=["lib", "cdylib"]
 
 [workspace]
 members = ["dpi"]
