@@ -489,8 +489,24 @@ pub struct PenStateInfo {
     /// **Web:** Not supported.
     pub distance: Option<Distance>,
 
-    /// Describes how hard the pen is pressed *sideways*, from 0.0 to 1.0.
+    /// Pen-specific. Can be sideways pressure, wheel state, etc.
     pub tangent_force: Option<f32>,
+
+    /// If supported, twist angle in degrees, clockwise, from 0.0 to 360.0.
+    ///
+    /// This is a surprisingly rare feature. It is generally only available on old Wacom devices
+    /// (and even then only when using a specific stylus, that is no longer manufactured as of
+    /// 2025) or very modern iPads (as of 2025).
+    ///
+    /// Twist for pen devices is rotation along the main axis of the pen, i.e. "twist".
+    /// There is no canonical meaning of zero rotation, so the null rotation varies
+    /// from device to device; it might mean buttons towards user, or off at a weird
+    /// angle, or away from the tablet surface, or anything. It might even drift.
+    ///
+    /// This value may report as an actual number even if it is not actually supported. This is
+    /// because some devices/drivers report it but always report 0 (or some other value) even
+    /// if they know they don't support it.
+    pub twist: Option<f32>,
 }
 
 /// Represents the pointer type and its data for a pointer event.
@@ -564,7 +580,12 @@ pub enum PointerSource {
         /// device, platform, and user-side driver configuration, this might always be all zeroes
         /// even if the user is pressing buttons or engaging the tip of the pen.
         ///
-        /// On some platforms, pens can toggle buttons mid-motion without any other events.
+        /// On some platforms, pens can toggle buttons mid-motion without any other events. When
+        /// that matters, you need to watch this field in addition to looking at button events.
+        ///
+        /// For some devices/platforms, "button" is a misnomer, and this field can be used for
+        /// general binary metadata about the current pen state, like whether it's in eraser
+        /// mode or not (e.g. bit 6 / bitmask value 32 on windows).
         button_state: Option<u32>,
 
         /// Describes how hard the pen was pressed.
@@ -575,18 +596,6 @@ pub enum PointerSource {
         /// and measured force is unspecified and varies wildly from device to device; it
         /// does not even need to be monotonic, let alone start and end at 0.0 and 1.0.
         force: Option<Force>,
-
-        /// If supported, twist angle in degrees, clockwise, from 0.0 to 360.0.
-        ///
-        /// Twist for pen devices is rotation along the main axis of the pen, i.e. "twist".
-        /// There is no canonical meaning of zero rotation, so the null rotation varies
-        /// from device to device; it might mean buttons towards user, or off at a weird
-        /// angle, or away from the tablet surface, or anything. It might even drift.
-        ///
-        /// This value may report as an actual number even if it is not actually supported. This is
-        /// because some devices/drivers report it but always report 0 (or some other value) even
-        /// if they know they don't support it.
-        twist: Option<f32>,
 
         /// If supported, amount of left-right tilt, where -90.0 is fully tilted left and 90.0
         /// right. 0.0 means non-tilted.
@@ -606,6 +615,7 @@ pub enum PointerSource {
         tilt_y: Option<f32>,
 
         /// If supported, amount of tilt away from the pen being perfectly upright, in degrees.
+        /// This is essentially a euler angle.
         ///
         /// Some devices or platforms report this instead of x/y axis tilt.
         tilt_altitude: Option<f32>,
@@ -644,16 +654,11 @@ pub enum ButtonSource {
         force: Option<Force>,
     },
     /// See [`PointerSource::Pen`] for more details.
-    ///
-    /// ## Platform-specific
-    ///
-    /// **Windows:** Currently only supported on windows.
     Pen {
         pen_id: PointerId,
         state_info: PenStateInfo,
         button_state: Option<u32>,
         force: Option<Force>,
-        twist: Option<f32>,
         tilt_x: Option<f32>,
         tilt_y: Option<f32>,
         tilt_altitude: Option<f32>,

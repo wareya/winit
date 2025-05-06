@@ -410,7 +410,6 @@ impl EventLoop {
                                         event::PointerSource::Pen {
                                             pen_id: pointer_id,
                                             force,
-                                            twist: None,
                                             tilt_x: None,
                                             tilt_y: None,
                                             tilt_altitude: Some(

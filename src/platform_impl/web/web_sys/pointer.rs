@@ -1,7 +1,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use web_sys::PointerEvent;
+use web_sys::{PointerEvent, MouseEvent};
 
 use super::canvas::Common;
 use super::event;
@@ -106,18 +106,18 @@ impl PointerHandler {
 
                         let m_event: &MouseEvent = event.as_ref();
                         let button_state = Some(m_event.buttons() as u32);
-                        let mut state_info = Default::default();
+                        let mut state_info = crate::event::PenStateInfo::default();
                         // Windows Web clients use the 6th bit (1<<5) of the buttons field as
                         // whether the pen is in eraser mode. This seems to be the only way to
                         // detect eraser mode on the web in general, so we won't bother trying to
                         // detect the web host platform.
-                        state_info.is_eraser = Some(state_info & 32);
-                        PointerSource::Pen {
+                        state_info.is_eraser = button_state.map(|x| (x & 32) != 0);
+                        state_info.twist = Some(event.twist() as f32);
+                        ButtonSource::Pen {
                             pen_id: pointer_id,
                             force: Some(Force::Normalized(event.pressure().into())),
-                            twist: Some(event.twist() as f32),
-                            tilt_x: Some(event.twist() as f32),
-                            tilt_y: Some(event.twist() as f32),
+                            tilt_x: Some(event.tilt_x() as f32),
+                            tilt_y: Some(event.tilt_y() as f32),
                             tilt_altitude,
                             tilt_azimuth,
                             button_state,
@@ -194,14 +194,14 @@ impl PointerHandler {
 
                         let m_event: &MouseEvent = event.as_ref();
                         let button_state = Some(m_event.buttons() as u32);
-                        let mut state_info = Default::default();
-                        state_info.is_eraser = Some(state_info & 32);
-                        PointerSource::Pen {
+                        let mut state_info = crate::event::PenStateInfo::default();
+                        state_info.is_eraser = button_state.map(|x| (x & 32) != 0);
+                        state_info.twist = Some(event.twist() as f32);
+                        ButtonSource::Pen {
                             pen_id: pointer_id,
                             force: Some(Force::Normalized(event.pressure().into())),
-                            twist: Some(event.twist() as f32),
-                            tilt_x: Some(event.twist() as f32),
-                            tilt_y: Some(event.twist() as f32),
+                            tilt_x: Some(event.tilt_x() as f32),
+                            tilt_y: Some(event.tilt_y() as f32),
                             tilt_altitude,
                             tilt_azimuth,
                             button_state,
@@ -331,14 +331,14 @@ impl PointerHandler {
 
                                     let m_event: &MouseEvent = event.as_ref();
                                     let button_state = Some(m_event.buttons() as u32);
-                                    let mut state_info = Default::default();
-                                    state_info.is_eraser = Some(state_info & 32);
+                                    let mut state_info = crate::event::PenStateInfo::default();
+                                    state_info.is_eraser = button_state.map(|x| (x & 32) != 0);
+                                    state_info.twist = Some(event.twist() as f32);
                                     PointerSource::Pen {
                                         pen_id: pointer_id,
                                         force: Some(Force::Normalized(event.pressure().into())),
-                                        twist: Some(event.twist() as f32),
-                                        tilt_x: Some(event.twist() as f32),
-                                        tilt_y: Some(event.twist() as f32),
+                                        tilt_x: Some(event.tilt_x() as f32),
+                                        tilt_y: Some(event.tilt_y() as f32),
                                         tilt_altitude,
                                         tilt_azimuth,
                                         button_state,

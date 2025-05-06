@@ -2114,16 +2114,17 @@ unsafe fn public_window_callback_inner(
                             button: if let PT_TOUCH = pointer_info.pointerType {
                                 ButtonSource::Touch { finger_id, force }
                             } else if let PT_PEN = pointer_info.pointerType {
+                                let mut state_info : crate::event::PenStateInfo = Default::default();
+                                state_info.twist = twist;
                                 ButtonSource::Pen {
                                     pen_id: pointer_id,
                                     force,
-                                    twist,
                                     tilt_x,
                                     tilt_y,
                                     tilt_altitude: None,
                                     tilt_azimuth: None,
                                     button_state: None,
-                                    state_info: Default::default(),
+                                    state_info,
                                 }
                             } else {
                                 ButtonSource::Unknown(0)
@@ -2138,16 +2139,17 @@ unsafe fn public_window_callback_inner(
                             button: if let PT_TOUCH = pointer_info.pointerType {
                                 ButtonSource::Touch { finger_id, force }
                             } else if let PT_PEN = pointer_info.pointerType {
+                                let mut state_info : crate::event::PenStateInfo = Default::default();
+                                state_info.twist = twist;
                                 ButtonSource::Pen {
                                     pen_id: pointer_id,
                                     force,
-                                    twist,
                                     tilt_x,
                                     tilt_y,
                                     tilt_altitude: None,
                                     tilt_azimuth: None,
                                     button_state: None,
-                                    state_info: Default::default(),
+                                    state_info,
                                 }
                             } else {
                                 ButtonSource::Unknown(0)
@@ -2173,16 +2175,17 @@ unsafe fn public_window_callback_inner(
                             source: if let PT_TOUCH = pointer_info.pointerType {
                                 PointerSource::Touch { finger_id, force }
                             } else if let PT_PEN = pointer_info.pointerType {
+                                let mut state_info : crate::event::PenStateInfo = Default::default();
+                                state_info.twist = twist;
                                 PointerSource::Pen {
                                     pen_id: pointer_id,
                                     force,
-                                    twist,
                                     tilt_x,
                                     tilt_y,
                                     tilt_altitude: None,
                                     tilt_azimuth: None,
                                     button_state: None,
-                                    state_info: Default::default(),
+                                    state_info,
                                 }
                             } else {
                                 PointerSource::Unknown

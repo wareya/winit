@@ -97,12 +97,11 @@ impl ApplicationHandler for App {
                 source:
                     winit::event::PointerSource::Pen {
                         force,
-                        twist,
                         tilt_x,
                         tilt_y,
                         tilt_azimuth,
                         tilt_altitude,
-                        state_info: winit::event::PenStateInfo { distance, .. },
+                        state_info: winit::event::PenStateInfo { twist, distance, .. },
                         ..
                     },
                 ..
